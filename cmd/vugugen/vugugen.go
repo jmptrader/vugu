@@ -3,11 +3,10 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"path/filepath"
 
-	"github.com/vugu/vugu"
+	"github.com/vugu/vugu/gen"
 )
 
 // we basically just wrap ParserGoPKg
@@ -15,35 +14,40 @@ func main() {
 
 	// vugugen path/to/package
 
-	var opts vugu.ParserGoPkgOpts
-	flag.BoolVar(&opts.SkipRegisterComponentTypes, "skip-register", false, "Do not attempt to register component in init() method")
+	var opts gen.ParserGoPkgOpts
 	flag.BoolVar(&opts.SkipGoMod, "skip-go-mod", false, "Do not try to create go.mod as needed")
 	flag.BoolVar(&opts.SkipMainGo, "skip-main", false, "Do not try to create main.go as needed")
-	// version := flag.Bool("version", false, "Print version and exit with code 0")
+	flag.BoolVar(&opts.TinyGo, "tinygo", false, "Generate code intended for compilation under Tinygo")
+	flag.BoolVar(&opts.MergeSingle, "s", false, "Merge generated code for a package into a single file.")
+	recursive := flag.Bool("r", false, "Run recursively on specified path and subdirectories.")
 	flag.Parse()
 
-	// if *version { // NOTE: this is really just here so you can do `vugugen -version` and see if it works, makes things simple
-	// 	fmt.Println("0.0.0")
-	// 	os.Exit(0)
-	// }
-
 	args := flag.Args()
-	if len(args) != 1 {
-		fmt.Printf("expected exactly one argument of package path but got %d args instead", len(args))
+
+	// default to current directory
+	if len(args) == 0 {
+		args = []string{"."}
 	}
 
-	pkgPath := args[0]
-	var err error
-	pkgPath, err = filepath.Abs(pkgPath)
-	if err != nil {
-		log.Fatal(err)
-	}
+	for _, arg := range args {
 
-	p := vugu.NewParserGoPkg(pkgPath, &opts)
+		pkgPath := arg
+		var err error
+		pkgPath, err = filepath.Abs(pkgPath)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	err = p.Run()
-	if err != nil {
-		log.Fatal(err)
+		if *recursive {
+			err = gen.RunRecursive(pkgPath, &opts)
+		} else {
+			err = gen.Run(pkgPath, &opts)
+		}
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
 	}
 
 }
